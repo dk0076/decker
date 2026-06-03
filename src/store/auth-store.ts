@@ -11,12 +11,12 @@ export type Profile = {
 
 // 'unknown'  — initial state; no fetch has started yet. Guard does not route.
 // 'loading'  — fetch is in flight. Guard does not route.
-// 'missing'  — fetch returned no row (definitive). Guard routes to complete-profile.
+// 'missing'  — fetch returned no row (definitive). Guard routes to choose-username.
 // 'loaded'   — fetch returned a row. Guard routes to home.
 // 'error'    — all retry attempts failed. Guard routes to network-error screen.
 //
 // Errors resolve to 'error' after retries, never to 'missing', so a transient
-// network failure cannot incorrectly send the user to complete-profile.
+// network failure cannot incorrectly send the user to choose-username.
 export type ProfileStatus = 'unknown' | 'loading' | 'missing' | 'loaded' | 'error';
 
 type AuthState = {

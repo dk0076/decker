@@ -67,39 +67,28 @@ export async function signIn(
   return {};
 }
 
-// Returns { needsConfirmation: true } when Supabase requires email verification
-// (the default). The profile is NOT created here in that case — it is deferred
-// to complete-profile.tsx which runs after the user taps the confirmation link
-// and a live session is available.
-//
-// When email confirmation is disabled (Auth → Email → "Confirm email" off in the
-// Supabase dashboard), session is returned immediately and the profile is created
-// inline here.
+// Returns { needsConfirmation: true } when Supabase requires email verification.
+// Profile creation is always deferred to choose-username.tsx, where the user
+// picks a username after the auth user exists (regardless of whether email
+// confirmation is enabled or disabled).
 export async function signUp(
   email: string,
   password: string,
-  username: string,
-  timezone: string,
-): Promise<{ needsConfirmation?: boolean; profile?: Profile; error?: string }> {
+): Promise<{ needsConfirmation?: boolean; error?: string }> {
   const { data, error } = await supabase.auth.signUp({ email, password });
   if (error) return { error: error.message };
   if (!data.user) return { error: 'Signup failed — please try again.' };
 
   if (!data.session) {
-    // Email confirmation required; profile creation happens in complete-profile.
+    // Email confirmation required. onAuthStateChange fires after the user
+    // taps the link; profile creation happens on choose-username.
     return { needsConfirmation: true };
   }
 
-  const profileResult = await createProfile({
-    id: data.user.id,
-    username,
-    timezone,
-  });
-  if (profileResult.error) return { error: profileResult.error };
-
-  return {
-    profile: { id: data.user.id, username, timezone, display_name: null, avatar_url: null },
-  };
+  // Session available immediately (email confirmation disabled in Supabase).
+  // onAuthStateChange fires, fetches profile (null) → profileStatus:'missing'.
+  // AuthGuard routes to choose-username where profile creation happens.
+  return {};
 }
 
 export async function updateProfile(

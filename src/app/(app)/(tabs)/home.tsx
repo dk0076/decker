@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { signOut } from '@/lib/auth';
 import { getCycle, type CycleInfo } from '@/lib/cycle';
 import { ensureCycleRow, type CycleRow } from '@/lib/cycle/ensure-cycle-row';
 import { useAuthStore } from '@/store/auth-store';
@@ -74,9 +72,6 @@ function PlaceholderScreen({ label }: { label: string }) {
   return (
     <ThemedView style={shared.center}>
       <ThemedText themeColor="textSecondary">{label}</ThemedText>
-      <Pressable style={phStyles.signOut} onPress={signOut}>
-        <ThemedText themeColor="textSecondary">Sign out</ThemedText>
-      </Pressable>
     </ThemedView>
   );
 }
@@ -85,28 +80,16 @@ function PhotoPhaseScreen({
   username,
   cycleInfo,
   now,
-  onEditProfile,
 }: {
   username: string;
   cycleInfo: CycleInfo;
   now: Date;
-  onEditProfile: () => void;
 }) {
   const { days, hours, minutes, seconds } = getRemainingDHMS(cycleInfo.nextPhaseChangeAt, now);
 
   return (
     <ThemedView style={photoStyles.container}>
-      <SafeAreaView style={photoStyles.safe}>
-
-        {/* Top bar: edit button at trailing edge */}
-        <View style={photoStyles.topBar}>
-          <View style={photoStyles.topBarSpacer} />
-          <Pressable onPress={onEditProfile} hitSlop={12}>
-            <ThemedText style={photoStyles.editBtn} themeColor="textSecondary">
-              Edit
-            </ThemedText>
-          </Pressable>
-        </View>
+      <SafeAreaView style={photoStyles.safe} edges={['top']}>
 
         {/* Identity */}
         <View style={photoStyles.header}>
@@ -129,11 +112,6 @@ function PhotoPhaseScreen({
           </ThemedText>
         </View>
 
-        {/* Sign out */}
-        <Pressable style={photoStyles.signOut} onPress={signOut}>
-          <ThemedText themeColor="textSecondary">Sign out</ThemedText>
-        </Pressable>
-
       </SafeAreaView>
     </ThemedView>
   );
@@ -150,23 +128,15 @@ const errStyles = StyleSheet.create({
   button: { paddingVertical: Spacing.two, paddingHorizontal: Spacing.four },
 });
 
-const phStyles = StyleSheet.create({
-  signOut: { marginTop: Spacing.six, paddingVertical: Spacing.two },
-});
-
 const photoStyles = StyleSheet.create({
   container:      { flex: 1 },
   safe:           { flex: 1, paddingHorizontal: Spacing.four },
-  topBar:         { flexDirection: 'row', alignItems: 'center', paddingTop: Spacing.two },
-  topBarSpacer:   { flex: 1 },
-  editBtn:        { fontSize: 16 },
   header:         { paddingTop: Spacing.three, alignItems: 'center', gap: Spacing.one },
   username:       { fontSize: 16 },
   phaseBadge:     { fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.5 },
   countdownBlock: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: Spacing.two },
   countdown:      { flexDirection: 'row', gap: Spacing.one },
   countdownLabel: { fontSize: 14 },
-  signOut:        { alignSelf: 'center', paddingVertical: Spacing.three, marginBottom: Spacing.two },
 });
 
 // ─── Root component ───────────────────────────────────────────────────────────
@@ -177,7 +147,6 @@ type ScreenState =
   | { status: 'ready'; cycleRow: CycleRow };
 
 export default function HomeScreen() {
-  const router  = useRouter();
   const session = useAuthStore(s => s.session);
   const profile = useAuthStore(s => s.profile);
 
@@ -243,7 +212,6 @@ export default function HomeScreen() {
         username={profile.username}
         cycleInfo={cycleInfo}
         now={now}
-        onEditProfile={() => router.push('/(app)/profile')}
       />
     );
   }

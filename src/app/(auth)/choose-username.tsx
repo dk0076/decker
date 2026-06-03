@@ -21,15 +21,16 @@ const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 
 // This screen serves two cases:
 //
-//  1. Email-confirmed signup: the user confirmed their email and now has a
-//     live session but no public.users row. They arrive here to pick a username.
+//  1. New signup (email confirmed or confirmation disabled): the user has a
+//     live session but no public.users row. AuthGuard routes here when
+//     profileStatus is 'missing'.
 //
 //  2. Orphaned-auth recovery: a previous signup created an auth user but the
-//     profile INSERT failed (network error, username conflict, etc.). On the
-//     next app open AuthGuard sees session + no profile and routes here.
+//     profile INSERT failed (network error, etc.). On the next app open
+//     AuthGuard sees session + no profile and routes here again.
 //     On mount we re-check whether a profile was actually created (handles the
 //     race where the INSERT succeeded but the store wasn't updated).
-export default function CompleteProfileScreen() {
+export default function ChooseUsernameScreen() {
   const theme = useTheme();
   const { session, setProfile } = useAuthStore();
   const [username, setUsername] = useState('');
@@ -71,10 +72,9 @@ export default function CompleteProfileScreen() {
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
     const result = await createProfile({ id: session.user.id, username: trimmed, timezone });
     if (result.error) {
-      // The profile may already exist from a concurrent signUp() that
-      // succeeded but whose INSERT wasn't visible when this screen mounted
-      // (PK conflict shows as 23505, same code as a username clash). Re-check
-      // before surfacing the error — if the row is there, just accept it.
+      // The profile may already exist from a concurrent attempt whose INSERT
+      // wasn't visible when this screen mounted (PK conflict shows as 23505,
+      // same code as a username clash). Re-check before surfacing the error.
       try {
         const existing = await fetchProfile(session.user.id);
         if (existing) { setProfile(existing); return; }
@@ -87,7 +87,7 @@ export default function CompleteProfileScreen() {
     }
 
     // Fetch the newly created row and push it into the store.
-    // AuthGuard sees profile !== null and navigates to /(app)/home.
+    // AuthGuard sees profileStatus:'loaded' and navigates to /(app)/home.
     const profile = await fetchProfile(session.user.id);
     if (profile) setProfile(profile);
     setLoading(false);
@@ -112,9 +112,9 @@ export default function CompleteProfileScreen() {
         style={styles.inner}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={styles.content}>
-          <ThemedText type="title" style={styles.title}>Almost done</ThemedText>
+          <ThemedText type="title" style={styles.title}>Choose a username</ThemedText>
           <ThemedText themeColor="textSecondary" style={styles.subtitle}>
-            Choose a username to complete your account.
+            Pick a handle to complete your account.
           </ThemedText>
 
           {error && <ThemedText style={styles.error}>{error}</ThemedText>}

@@ -79,7 +79,7 @@ function AuthGuard() {
 
     const segs = segments as string[];
     const inAuth = segs[0] === '(auth)';
-    const onCompleteProfile = inAuth && segs[1] === 'complete-profile';
+    const onChooseUsername = inAuth && segs[1] === 'choose-username';
     const onNetworkError = inAuth && segs[1] === 'network-error';
 
     const r = (p: string) => router.replace(p as RelativePathString);
@@ -89,10 +89,10 @@ function AuthGuard() {
       if (!inAuth) r('/(auth)/sign-in');
     } else if (profileStatus === 'missing') {
       // Session exists, profile definitively absent → finish setup.
-      if (!onCompleteProfile) r('/(auth)/complete-profile');
+      if (!onChooseUsername) r('/(auth)/choose-username');
     } else if (profileStatus === 'loaded') {
       // Fully authenticated → leave the auth stack.
-      if (inAuth) r('/(app)/home');
+      if (inAuth) r('/(app)/(tabs)/home');
     } else if (profileStatus === 'error') {
       // All retries failed — let the user see an error and retry manually.
       if (!onNetworkError) r('/(auth)/network-error');

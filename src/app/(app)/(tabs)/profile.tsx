@@ -1,7 +1,6 @@
-import { Image } from "expo-image";
-import * as ImagePicker from "expo-image-picker";
-import { useRouter } from "expo-router";
-import { useState } from "react";
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -11,16 +10,16 @@ import {
   StyleSheet,
   TextInput,
   View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ThemedText } from "@/components/themed-text";
-import { ThemedView } from "@/components/themed-view";
-import { Spacing } from "@/constants/theme";
-import { useTheme } from "@/hooks/use-theme";
-import { updateProfile } from "@/lib/auth";
-import { supabase } from "@/lib/supabase";
-import { useAuthStore } from "@/store/auth-store";
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+import { signOut, updateProfile } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
+import { useAuthStore } from '@/store/auth-store';
 
 const DISPLAY_NAME_MAX = 40;
 
@@ -34,48 +33,42 @@ async function uploadAvatar(
   userId: string,
   asset: ImagePicker.ImagePickerAsset,
 ): Promise<{ url: string | null; error: string | null }> {
-  // Derive file extension from the picked asset URI.
-  const ext = (asset.uri.split(".").pop() ?? "jpg").toLowerCase();
+  const ext = (asset.uri.split('.').pop() ?? 'jpg').toLowerCase();
   const path = `${userId}/avatar.${ext}`;
-  const mime = asset.mimeType ?? "image/jpeg";
+  const mime = asset.mimeType ?? 'image/jpeg';
 
-  // React Native's fetch() can resolve file:// and content:// URIs.
-  // arrayBuffer() gives us the raw bytes Supabase Storage expects.
   let buffer: ArrayBuffer;
   try {
     const response = await fetch(asset.uri);
     buffer = await response.arrayBuffer();
   } catch {
-    return { url: null, error: "Could not read the selected image." };
+    return { url: null, error: 'Could not read the selected image.' };
   }
 
   // upsert: true overwrites the existing avatar at the same path so the
   // URL is stable across re-uploads (the bucket path never changes per user).
   const { error: storageError } = await supabase.storage
-    .from("avatars")
+    .from('avatars')
     .upload(path, buffer, { contentType: mime, upsert: true });
 
   if (storageError) return { url: null, error: storageError.message };
 
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from("avatars").getPublicUrl(path);
+  const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
 
   // Append a timestamp so the image URL changes on each upload, preventing
   // the OS image cache from serving the old avatar after an update.
   return { url: `${publicUrl}?t=${Date.now()}`, error: null };
 }
 
-// ─── Profile screen ───────────────────────────────────────────────────────────
+// ─── Profile tab ─────────────────────────────────────────────────────────────
 
 export default function ProfileScreen() {
-  const router = useRouter();
   const theme = useTheme();
-  const session = useAuthStore((s) => s.session);
-  const profile = useAuthStore((s) => s.profile);
-  const setProfile = useAuthStore((s) => s.setProfile);
+  const session = useAuthStore(s => s.session);
+  const profile = useAuthStore(s => s.profile);
+  const setProfile = useAuthStore(s => s.setProfile);
 
-  const [displayName, setDisplayName] = useState(profile?.display_name ?? "");
+  const [displayName, setDisplayName] = useState(profile?.display_name ?? '');
   const [nameError, setNameError] = useState<string | null>(null);
   const [nameSaving, setNameSaving] = useState(false);
   const [nameSaved, setNameSaved] = useState(false);
@@ -90,13 +83,11 @@ export default function ProfileScreen() {
   async function handleSaveDisplayName() {
     const trimmed = displayName.trim();
     if (trimmed.length === 0) {
-      setNameError("Display name cannot be empty.");
+      setNameError('Display name cannot be empty.');
       return;
     }
     if (trimmed.length > DISPLAY_NAME_MAX) {
-      setNameError(
-        `Display name must be ${DISPLAY_NAME_MAX} characters or fewer.`,
-      );
+      setNameError(`Display name must be ${DISPLAY_NAME_MAX} characters or fewer.`);
       return;
     }
     if (!userId || !profile) return;
@@ -121,18 +112,17 @@ export default function ProfileScreen() {
   async function handlePickAvatar() {
     if (!userId || !profile) return;
 
-    // Request photo library access.
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      setAvatarError("Photo library access was denied. Enable it in Settings.");
+    if (status !== 'granted') {
+      setAvatarError('Photo library access was denied. Enable it in Settings.');
       return;
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: "images",
-      allowsEditing: true, // lets the user crop to a square
+      mediaTypes: 'images',
+      allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.7, // compress before upload; avatars don't need full-res
+      quality: 0.7,
       exif: false,
     });
 
@@ -145,7 +135,7 @@ export default function ProfileScreen() {
     const { url, error: uploadError } = await uploadAvatar(userId, asset);
 
     if (uploadError || !url) {
-      setAvatarError(uploadError ?? "Upload failed. Please try again.");
+      setAvatarError(uploadError ?? 'Upload failed. Please try again.');
       setAvatarLoading(false);
       return;
     }
@@ -164,39 +154,28 @@ export default function ProfileScreen() {
 
   const inputStyle = [
     styles.input,
-    {
-      backgroundColor: theme.backgroundElement,
-      color: theme.text,
-      borderColor: theme.backgroundSelected,
-    },
+    { backgroundColor: theme.backgroundElement, color: theme.text, borderColor: theme.backgroundSelected },
   ];
 
   const currentAvatar = profile?.avatar_url ?? null;
+  // Hero shows the in-progress display name so it acts as a live preview.
+  const heroName = displayName.trim() || profile?.username ?? '';
+  const initial = (profile?.display_name ?? profile?.username ?? '?')[0].toUpperCase();
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safe}>
-        {/* Navigation header */}
-        <View style={styles.navBar}>
-          <Pressable onPress={() => router.back()} hitSlop={12}>
-            <ThemedText style={styles.backBtn} themeColor="textSecondary">
-              ‹ Back
-            </ThemedText>
-          </Pressable>
-          <ThemedText style={styles.navTitle}>Profile</ThemedText>
-          <View style={styles.navSpacer} />
-        </View>
-
+      <SafeAreaView style={styles.safe} edges={['top']}>
         <KeyboardAvoidingView
           style={styles.kvFill}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <ScrollView
             contentContainerStyle={styles.scroll}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Avatar */}
-            <View style={styles.avatarSection}>
+
+            {/* ── Identity hero ───────────────────────────────────────────── */}
+            <View style={styles.hero}>
               <View style={styles.avatarWrap}>
                 {currentAvatar ? (
                   <Image
@@ -206,20 +185,9 @@ export default function ProfileScreen() {
                     transition={200}
                   />
                 ) : (
-                  <View
-                    style={[
-                      styles.avatar,
-                      styles.avatarPlaceholder,
-                      { backgroundColor: theme.backgroundElement },
-                    ]}
-                  >
-                    <ThemedText
-                      style={styles.avatarInitial}
-                      themeColor="textSecondary"
-                    >
-                      {(profile?.display_name ??
-                        profile?.username ??
-                        "?")[0].toUpperCase()}
+                  <View style={[styles.avatar, styles.avatarPlaceholder, { backgroundColor: theme.backgroundElement }]}>
+                    <ThemedText style={styles.avatarInitial} themeColor="textSecondary">
+                      {initial}
                     </ThemedText>
                   </View>
                 )}
@@ -233,22 +201,24 @@ export default function ProfileScreen() {
               <Pressable
                 onPress={handlePickAvatar}
                 disabled={avatarLoading}
-                style={[
-                  styles.changePhotoBtn,
-                  avatarLoading && styles.disabled,
-                ]}
+                style={[styles.changePhotoBtn, avatarLoading && styles.disabled]}
               >
                 <ThemedText style={styles.changePhotoText}>
-                  {avatarLoading ? "Uploading…" : "Change photo"}
+                  {avatarLoading ? 'Uploading…' : 'Change photo'}
                 </ThemedText>
               </Pressable>
 
               {avatarError && (
                 <ThemedText style={styles.errorText}>{avatarError}</ThemedText>
               )}
+
+              <ThemedText style={styles.heroName}>{heroName}</ThemedText>
+              <ThemedText style={styles.heroHandle} themeColor="textSecondary">
+                @{profile?.username}
+              </ThemedText>
             </View>
 
-            {/* Display name */}
+            {/* ── Edit display name ───────────────────────────────────────── */}
             <View style={styles.section}>
               <ThemedText style={styles.label} themeColor="textSecondary">
                 Display name
@@ -256,7 +226,7 @@ export default function ProfileScreen() {
               <TextInput
                 style={inputStyle}
                 value={displayName}
-                onChangeText={(text) => {
+                onChangeText={text => {
                   setDisplayName(text);
                   setNameSaved(false);
                   setNameError(null);
@@ -272,42 +242,37 @@ export default function ProfileScreen() {
               <ThemedText style={styles.charCount} themeColor="textSecondary">
                 {displayName.trim().length}/{DISPLAY_NAME_MAX}
               </ThemedText>
-
-              {nameError && (
-                <ThemedText style={styles.errorText}>{nameError}</ThemedText>
-              )}
-              {nameSaved && (
-                <ThemedText style={styles.savedText}>Saved.</ThemedText>
-              )}
-
+              {nameError && <ThemedText style={styles.errorText}>{nameError}</ThemedText>}
+              {nameSaved && <ThemedText style={styles.savedText}>Saved.</ThemedText>}
               <Pressable
                 onPress={handleSaveDisplayName}
                 disabled={nameSaving}
                 style={[styles.saveBtn, nameSaving && styles.disabled]}
               >
-                {nameSaving ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <ThemedText style={styles.saveBtnText}>Save</ThemedText>
-                )}
+                {nameSaving
+                  ? <ActivityIndicator color="#fff" />
+                  : <ThemedText style={styles.saveBtnText}>Save</ThemedText>}
               </Pressable>
             </View>
 
-            {/* Read-only username */}
+            {/* ── Username (read-only) ────────────────────────────────────── */}
             <View style={styles.section}>
               <ThemedText style={styles.label} themeColor="textSecondary">
                 Username
               </ThemedText>
-              <ThemedText style={styles.usernameReadOnly}>
-                @{profile?.username}
-              </ThemedText>
-              <ThemedText
-                style={styles.usernameNote}
-                themeColor="textSecondary"
-              >
+              <ThemedText style={styles.usernameReadOnly}>@{profile?.username}</ThemedText>
+              <ThemedText style={styles.usernameNote} themeColor="textSecondary">
                 Usernames cannot be changed after signup.
               </ThemedText>
             </View>
+
+            {/* ── Sign out ────────────────────────────────────────────────── */}
+            <Pressable onPress={signOut} style={styles.signOutBtn}>
+              <ThemedText style={styles.signOutText} themeColor="textSecondary">
+                Sign out
+              </ThemedText>
+            </Pressable>
+
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -321,18 +286,8 @@ const AVATAR_SIZE = 96;
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  safe: { flex: 1 },
-  kvFill: { flex: 1 },
-
-  navBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.two,
-  },
-  backBtn: { fontSize: 18 },
-  navTitle: { flex: 1, textAlign: "center", fontWeight: "600", fontSize: 17 },
-  navSpacer: { width: 40 }, // mirrors backBtn width to keep title centered
+  safe:      { flex: 1 },
+  kvFill:    { flex: 1 },
 
   scroll: {
     paddingHorizontal: Spacing.four,
@@ -340,32 +295,33 @@ const styles = StyleSheet.create({
     gap: Spacing.four,
   },
 
-  avatarSection: {
-    alignItems: "center",
-    gap: Spacing.two,
-    paddingTop: Spacing.three,
+  // Hero section
+  hero: {
+    alignItems: 'center',
+    gap: Spacing.one,
+    paddingTop: Spacing.four,
+    paddingBottom: Spacing.two,
   },
-  avatarWrap: { position: "relative" },
-  avatar: {
-    width: AVATAR_SIZE,
-    height: AVATAR_SIZE,
-    borderRadius: AVATAR_SIZE / 2,
-  },
-  avatarPlaceholder: { justifyContent: "center", alignItems: "center" },
-  avatarInitial: { fontSize: 36, fontWeight: "300" },
+  avatarWrap:        { position: 'relative', marginBottom: Spacing.one },
+  avatar:            { width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2 },
+  avatarPlaceholder: { justifyContent: 'center', alignItems: 'center' },
+  avatarInitial:     { fontSize: 36, fontWeight: '300' },
   avatarOverlay: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     borderRadius: AVATAR_SIZE / 2,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  changePhotoBtn: { paddingVertical: Spacing.one },
-  changePhotoText: { color: "#208AEF", fontSize: 16, fontWeight: "500" },
-  disabled: { opacity: 0.5 },
+  changePhotoBtn:  { paddingVertical: Spacing.one },
+  changePhotoText: { color: '#208AEF', fontSize: 15, fontWeight: '500' },
+  disabled:        { opacity: 0.5 },
+  heroName:        { fontSize: 22, fontWeight: '600', marginTop: Spacing.two },
+  heroHandle:      { fontSize: 15 },
 
+  // Edit sections
   section: { gap: Spacing.one },
-  label: { fontSize: 13, textTransform: "uppercase", letterSpacing: 0.8 },
+  label:   { fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.8 },
 
   input: {
     borderWidth: 1,
@@ -374,20 +330,29 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two + 4,
     fontSize: 16,
   },
-  charCount: { fontSize: 12, textAlign: "right" },
-
-  errorText: { color: "#E5383B", fontSize: 14 },
-  savedText: { color: "#3CB371", fontSize: 14 },
+  charCount: { fontSize: 12, textAlign: 'right' },
+  errorText: { color: '#E5383B', fontSize: 14 },
+  savedText: { color: '#3CB371', fontSize: 14 },
 
   saveBtn: {
-    backgroundColor: "#208AEF",
+    backgroundColor: '#208AEF',
     borderRadius: Spacing.two,
     paddingVertical: Spacing.two + 4,
-    alignItems: "center",
+    alignItems: 'center',
     marginTop: Spacing.one,
   },
-  saveBtnText: { color: "#fff", fontWeight: "600", fontSize: 16 },
-
+  saveBtnText:     { color: '#fff', fontWeight: '600', fontSize: 16 },
   usernameReadOnly: { fontSize: 16 },
-  usernameNote: { fontSize: 13 },
+  usernameNote:     { fontSize: 13 },
+
+  // Sign out
+  signOutBtn: {
+    borderWidth: 1,
+    borderColor: 'rgba(128,128,128,0.3)',
+    borderRadius: Spacing.two,
+    paddingVertical: Spacing.two + 4,
+    alignItems: 'center',
+    marginTop: Spacing.two,
+  },
+  signOutText: { fontSize: 16 },
 });
