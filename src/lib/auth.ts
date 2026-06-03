@@ -102,6 +102,18 @@ export async function signUp(
   };
 }
 
+export async function updateProfile(
+  userId: string,
+  fields: { display_name?: string | null; avatar_url?: string | null },
+): Promise<{ error?: string }> {
+  const { error } = await supabase
+    .from('users')
+    .update(fields)
+    .eq('id', userId);
+  if (error) return { error: error.message };
+  return {};
+}
+
 export async function signOut(): Promise<void> {
   await supabase.auth.signOut();
 }

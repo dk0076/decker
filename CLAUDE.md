@@ -35,6 +35,19 @@ activity across the week — that destroys the concept.
   via env. Never hardcode keys. The service_role/secret key is SERVER-SIDE ONLY
   (Edge Functions), never in the app bundle or .env.
 
+## Data model notes
+- cycles table: (id, user_id, week_start DATE, cycle_number INTEGER, phase, locked_at, created_at)
+  - week_start is the user-local Wednesday that opens the photo phase (YYYY-MM-DD).
+  - cycle_number is a timezone-independent integer from the cycle engine
+    (src/lib/cycle/index.ts): round((week_start_utc − 2026-01-07_utc) / 7 days).
+    Two users in different timezones who share the same local Wednesday get the same
+    integer. Written by the client on INSERT; nullable on rows pre-dating the
+    20260529 migration. UNIQUE(user_id, week_start) prevents duplicate rows.
+  - locked_at is NULL until the server-side roulette draw fires (service_role only).
+  - The viewer_has_locked_for_cycle() RLS function currently joins on week_start
+    (date equality). It must be updated to join on cycle_number before multi-timezone
+    post-to-unlock correctness is required. See TODO in 20260528 migration.
+
 ## Security
 - RLS bugs fail silently (queries return rows they shouldn't). Treat every RLS
   policy as security-critical and explain each one in a comment.
